@@ -1,3 +1,6 @@
+var IO = require( './IO.js' ).IO,
+	bot = require( './bot.js' ).bot;
+
 var parseCommandArgs = (function ( args ) {
 
 	var state, inString, prev;
@@ -114,7 +117,7 @@ var commands = {
 			console.log( url, 'mdn DOM' );
 		}
 
-		else if ( window[parts[0]] ) {
+		else if ( process[parts[0]] ) {
 			url = base +
 				  'JavaScript/Reference/Global_Objects/' +
 				  parts.join( '/' );

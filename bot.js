@@ -1,163 +1,17 @@
-////IO start
-var IO = {
-	//event handling
-	events : {},
-	preventDefault : false,
+var IO = require( './IO.js' ).IO;
 
-	//register for an event
-	register : function ( name, fun, thisArg ) {
-		if ( !this.events[name] ) {
-			this.events[ name ] = [];
-		}
-		this.events[ name ].push({
-			fun : fun,
-			thisArg : thisArg,
-			args : Array.prototype.slice.call( arguments, 3 )
-		});
-
-		return this;
-	},
-
-	unregister : function ( name, fun ) {
-		if ( !this.events[name] ) {
-			return this;
-		}
-
-		this.events[ name ] = this.events[ name ].filter(function ( obj ) {
-			return obj.fun !== fun;
-		});
-
-		return this;
-	},
-
-	//fire event!
-	fire : function ( name ) {
-		if ( !this.events[name] ) {
-			return;
-		}
-
-		var args = Array.prototype.slice.call( arguments, 1 );
-
-		this.events[ name ].forEach( fireEvent, this);
-
-		function fireEvent( evt ) {
-			var call = evt.fun.apply( evt.thisArg, evt.args.concat(args) );
-
-			if ( call === false ) {
-				this.preventDefault = true;
-			}
-		}
-	},
-
-	jsonp : function ( opts ) {
-		var script = document.createElement( 'script' ),
-			semiRandom = 'IO_' + ( Date.now() * Math.ceil(Math.random()) );
-
-		window[ semiRandom ] = function () {
-			opts.fun.apply( opts.thisArg, arguments );
-
-			//cleanup
-			window[ semiRandom ] = null;
-			script.parentNode.removeChild( script );
-		};
-
-		if ( opts.url.indexOf('?') === -1 ) {
-			opts.url += '?';
-		}
-		script.src = opts.url + '&jsonp=' + semiRandom;
-
-		document.head.appendChild( script );
-	},
-
-	loadScript : function ( url ) {
-		var script = document.createElement( 'script' );
-		script.src = url;
-		document.head.appendChild( script );
-	}
-};
-
-//build IO.in and IO.out
-[ 'in', 'out' ].forEach(function ( dir ) {
-	var fullName = dir + 'put';
-
-	IO[ dir ] = {
-		buffer : [],
-
-		receive : function ( obj ) {
-			IO.fire( 'receive' + fullName, obj );
-
-			if ( IO.preventDefault ) {
-				console.log( obj, 'preventDefault' );
-				IO.preventDefault = false;
-				return this;
-			}
-
-			this.buffer.push( obj );
-
-			return this;
-		},
-
-		//unload the next item in the buffer
-		tick : function () {
-			if ( this.buffer.length ) {
-				IO.fire( fullName, this.buffer.shift() );
-			}
-
-			return this;
-		},
-
-		//unload everything in the buffer
-		flush : function () {
-			IO.fire( 'before' + fullName );
-
-			if ( !this.buffer.length ) {
-				return this;
-			}
-
-			var i = this.buffer.length;
-			while( i --> 0 ) {
-				this.tick();
-			}
-
-			IO.fire( 'after' + fullName );
-
-			this.buffer = [];
-
-			return this;
-		}
-	};
-});
-////IO end
-
-////bot start
 var bot = {
 	name : 'Zirak',
 	invocationPattern : '!!',
 
-	roomid : parseFloat( location.pathname.match(/\d+/)[0] ),
+	baseURL : 'http://chat.stackoverflow.com/',
+	roomid : 6147,
+	fkey : 'e2a33e7b1b3536bb46b39d9bcefaffa8',
 
 	commandRegex : /^\/([\w\-\_]+)\s*(.+)?$/,
 	commands : {}, //will be filled as needed
 
-	codifyOutput : false,
-
 	stopped : false,
-
-	dependencies : {
-		commands : 'https://raw.github.com/Titani/SO-ChatBot/master/commands.js',
-		hangman : 'https://raw.github.com/Titani/SO-ChatBot/master/hangman.js'
-	},
-
-	//common elements
-	elems : {
-		input : document.getElementById( 'input' ),
-		codify : document.getElementById( 'codify-button' ),
-		send : document.getElementById( 'sayit-button' ),
-
-		//for my local testing
-		output : document.getElementById( 'output' ) ||
-			document.createElement( 'pre' )
-	},
 
 	parseMessage : function ( msgObj ) {
 		console.log( msgObj, 'parseMessage input' );
@@ -182,7 +36,7 @@ var bot = {
 			}
 
 			console.log( msg, 'parseMessage guess' );
-			//if it's valid and not a comment, fire an event and let someone
+			//if it's valid and not a command, fire an event and let someone
 			// else (or noone) worry about it
 			IO.fire( 'messageReceived', msg, msgObj.user_name );
 		}
@@ -213,27 +67,8 @@ var bot = {
 			usr = msgObj.user_name;
 
 		console.log( commandParts, 'parseCommand matched' );
-
-		if ( !this.commandExists(commandName) ) {
-			bot.reply( 'Unidentified command ' + commandName, usr );
-			return;
-		}
-
-		var cmdObj = this.commands[ commandName ];
-
-		if ( !cmdObj.canUse(usr) ) {
-			bot.reply(
-				'You do not have permission to use the command ' + commandName,
-				usr
-			);
-			return;
-		}
-
-		bot.directReply(
-			cmdObj.fun.call( cmdObj.thisArg, commandArgs, msgObj ),
-			msgObj.message_id
-		);
 	},
+
 
 	validateMessage : function ( msgObj ) {
 		if ( this.stopped ) {
@@ -306,22 +141,22 @@ var bot = {
 				return;
 			}
 
-			jQuery.ajax({
-				url : '/chats/' + bot.roomid + '/messages/new',
-				data : {
-					text : message,
-					fkey : fkey().fkey
-				},
-				type : 'POST',
-				complete : complete
-			});
+			var req = IO.request({
+				host : that.baseURL,
+				path : '/chats/' + bot.roomid + '/messages/new',
+				method : 'POST',
+				headers : {
+					'content-type' : 'application/x-www-form-urlencoded'
+				}
+			}, complete );
+
+			req.end( 'fkey=' + bot.fkey + '&text=' + message );
 
 			that.msg = '';
 
-			function complete ( xhr ) {
-				console.log( xhr.status );
+			function complete ( resp ) {
 				//conflict, wait for next round to send message
-				if ( xhr.status === 409 ) {
+				if ( resp.status === 409 ) {
 					IO.out.receive( message.trim() );
 				}
 			}
@@ -349,7 +184,11 @@ var bot = {
 		};
 
 		cmd.del = function () {
-			
+
+		};
+
+		cmd.exec = function () {
+			return this.fun.apply( this, arguments );
 		};
 
 		this.commands[ cmd.name ] = cmd;
@@ -364,9 +203,11 @@ IO.register( 'receiveinput', bot.validateMessage, bot );
 IO.register( 'input', bot.parseMessage, bot );
 IO.register( 'output', bot.output.build, bot.output );
 IO.register( 'afteroutput', bot.output.send, bot.output );
-////bot ends
+
+exports.bot = bot;
 
 ////utility start
+
 var polling = {
 	//used in the SO chat requests, dunno exactly what for
 	times : {},
@@ -374,22 +215,25 @@ var polling = {
 	pollInterval : 5000,
 
 	init : function () {
-		var that = this,
-			roomid = location.pathname.match( /\d+/ )[ 0 ];
+		var that = this;
 
-		jQuery.post(
-			'/chats/' + roomid + '/events/',
-			fkey({
-				since : 0,
-				mode : 'Messages',
-				msgCount : 0
-			}),
-			finish
-		);
+		var req = IO.request({
+			host : that.baseURL,
+			path : '/chats/' + bot.roomid + '/events/',
+			headers : {
+				'Content-Type' : 'application/x-www-form-urlencoded'
+			}
+		}, finish );
+
+		req.end(IO.toRequestString({
+			fkey : that.fkey,
+			since : 0,
+			mode : 'Messages',
+			msgCount : 0
+		}));
 
 		function finish ( resp ) {
-			console.log( resp );
-			//resp = JSON.parse( resp );
+			resp = JSON.parse( resp );
 
 			that.times[ 'r' + roomid ] = resp.time;
 
@@ -402,19 +246,26 @@ var polling = {
 	poll : function () {
 		var that = this;
 
-		jQuery.post(
-			'/events',
-			Object.merge( fkey(), that.times ),
-			function () { that.complete.apply( that, arguments ); }
-		);
+		var req = IO.request({
+			host : that.baseURL,
+			path : '/events',
+			headers : {
+				'Content-Type' : 'application/x-www-form-urlencoded'
+			}
+		}, function () {
+			that.complete.apply( that, arguments );
+		});
+
+		req.end(IO.toRequestString( Object.merge({
+			fkey : that.fkey
+		}, bot.times )));
 	},
 
 	complete : function ( resp ) {
-		//resp = JSON.parse( resp );
-	
 		if ( !resp ) {
 			return;
 		}
+		resp = JSON.parse( resp );
 
 		var that = this;
 		Object.keys( resp ).forEach(function ( key ) {

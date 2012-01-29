@@ -36,6 +36,7 @@ var IO = {
 		if ( !this.events[name] ) {
 			return;
 		}
+		this.preventDefault = false;
 
 		var args = Array.prototype.slice.call( arguments, 1 );
 
@@ -59,9 +60,15 @@ var IO = {
 		});
 
 		req.on( 'response', function ( resp ) {
-			resp.on( 'data', function ( data ) {
-				data = JSON.parse( data );
-				opts.fun.apply( opts.thisArg, data );
+			var data = '';
+
+			resp.on( 'data', function ( body ) {
+				data += body.toString();
+
+			});
+
+			resp.on( 'end', function () {
+				opts.fun.apply( opts.thisArg, JSON.parse(data) );
 			});
 		});
 	},
@@ -87,7 +94,6 @@ var IO = {
 
 			if ( IO.preventDefault ) {
 				console.log( obj, 'preventDefault' );
-				IO.preventDefault = false;
 				return this;
 			}
 

@@ -4,7 +4,7 @@ var bot = {
 	name : 'Zirak',
 	invocationPattern : '!!',
 
-	baseURL : 'http://chat.stackoverflow.com/',
+	baseURL : 'www.chat.stackoverflow.com/',
 	roomid : 6147,
 	fkey : 'e2a33e7b1b3536bb46b39d9bcefaffa8',
 
@@ -74,8 +74,6 @@ var bot = {
 		if ( this.stopped ) {
 			return false;
 		}
-
-		var pathParts = location.pathname.split( '/' );
 
 		if ( msgObj.room_id !== this.roomid ) {
 			return false;
@@ -160,7 +158,7 @@ var bot = {
 					IO.out.receive( message.trim() );
 				}
 			}
-		},
+		}
 	},
 
 	//some sugar
@@ -202,14 +200,14 @@ var bot = {
 IO.register( 'receiveinput', bot.validateMessage, bot );
 IO.register( 'input', bot.parseMessage, bot );
 IO.register( 'output', bot.output.build, bot.output );
-IO.register( 'afteroutput', bot.output.send, bot.output );
 
 exports.bot = bot;
 
 ////utility start
 
 var polling = {
-	//used in the SO chat requests, dunno exactly what for
+	//used in the SO chat requests, dunno exactly what for, I assume they mean
+	// some sort of timestamp
 	times : {},
 
 	pollInterval : 5000,
@@ -217,20 +215,19 @@ var polling = {
 	init : function () {
 		var that = this;
 
-		var req = IO.request({
-			host : that.baseURL,
-			path : '/chats/' + bot.roomid + '/events/',
-			headers : {
-				'Content-Type' : 'application/x-www-form-urlencoded'
-			}
-		}, finish );
-
-		req.end(IO.toRequestString({
-			fkey : that.fkey,
+		var msg = IO.toRequestString({
+			fkey : bot.fkey,
 			since : 0,
 			mode : 'Messages',
 			msgCount : 0
-		}));
+		});
+		console.log( msg );
+
+		req.end( msg );
+
+		req.on( 'error', function ( err ) {
+			console.log( err );
+		});
 
 		function finish ( resp ) {
 			resp = JSON.parse( resp );

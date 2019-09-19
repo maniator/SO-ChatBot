@@ -1,16 +1,44 @@
-For usage info, on how to use the bot, see [here](https://github.com/Titani/SO-ChatBot/wiki/Interacting-with-the-bot).
+For usage info, on how to use the bot, see [here](https://github.com/Zirak/SO-ChatBot/wiki/Interacting-with-the-bot).
 
-The bot is currently a big dangle-on script running in your browser. Run `bookmarklet.js` in your browser to get it up an' running.
+### Running the bot ###
 
-To play with it yourself, there are several rules:
+The bot is currently a big dangle-on script running in your browser. **Run `bookmarklet.js`** in your browser to get it up an' running. For some tips on handling the bot, see [Bot Handling](https://github.com/Zirak/SO-ChatBot/wiki/Bot-Handling).
 
-1. If you're fed up with the console messages, `bot.stoplog = true`
-2. ***ALWAYS*** run through `build.js` (requires nodejs) after modifying things
-  1. You can `node build.js no-min` to skip minification
-3. In the source, `//#build fileName` is a "preprocessor" command, which is handled in `build.js`
-4. You do not speak of fight-club
+If you wish, you can also run it headlessly on top of phantomjs and node:
 
-The main two methods of the bot API:
+* Install [phantomjs 2](http://phantomjs.org/) (yes, it has to be 2 and above). Differs from platform to platform.
+* Install nightmare: `npm install nightmare`
+* Edit your credentials into `run-headless.js`
+* Hit the road: `env DEBUG=nightmare node run-headless.js`
+
+### Building ###
+
+```sh
+# one must first get the repo
+$ git clone https://github.com/Zirak/SO-ChatBot.git
+$ cd SO-ChatBot
+
+# linting
+npm run lint
+
+# building
+$ node build.js
+# or
+$ npm run build
+```
+
+The result will be in `master.js` and `master.min.js`
+
+The provided `publi.sh` automagically does building, adds all changed items to commit and publishes for you:
+
+```sh
+$ ./publi.sh commit-message
+```
+
+### The Bot API ###
+(, a very short explanation of a limited subset of)
+
+For a real cover, check the source code or [this wiki page](https://github.com/Zirak/SO-ChatBot/wiki/Plugin-writing) or `console.log(bot)`. Should be straightforward.
 
 ```javascript
 //add a bot command
@@ -36,5 +64,3 @@ bot.listen(
     callbackFun
 );
 ```
-
-Callbacks receive a single paramete, the arguments, unless they're asynchronous, in which case they receive 2 (the second being a callback to optionally use.)
